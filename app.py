@@ -10,10 +10,10 @@ from io import BytesIO
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+from sklearn.preprocessing import MinMaxScaler
 # Keras
-from keras.applications.imagenet_utils import preprocess_input, decode_predictions
+
 from keras.models import load_model
-from keras.preprocessing import image
 
 # Flask utils
 from flask import Flask, redirect, url_for, request, render_template
@@ -26,7 +26,7 @@ app = Flask(__name__)
 MODEL_PATH = 'SBIN.h5'
 
 # Load your trained model
-#model = load_model(MODEL_PATH)
+model = load_model(MODEL_PATH)
 #model._make_predict_function()          # Necessary
 # print('Model loaded. Start serving...')
 
@@ -95,7 +95,6 @@ def get_data(stock):
     today = datetime.now()
     start = get_date_years_back(1)
     df = nse.getHistoricalData(stock, 'EQ', date(start.year,start.month,start.day), date(today.year,today.month,today.day))
-    print(df.head())
     return df
 
 
@@ -120,32 +119,26 @@ def index():
     # Main page
     return render_template('index.html')
 
-'''
-@app.route('/predict', methods=['GET', 'POST'])
-def upload():
-    if request.method == 'POST':
-        # Get the file from post request
-        f = request.files['file']
-
-        # Save the file to ./uploads
-        basepath = os.path.dirname(__file__)
-        file_path = os.path.join(
-            basepath, 'uploads', secure_filename(f.filename))
-        f.save(file_path)
-
-        # Make prediction
-        preds = model_predict(file_path, model)
-
-        # Process your result for human
-        # pred_class = preds.argmax(axis=-1)            # Simple argmax
-        pred_class = decode_predictions(preds, top=1)   # ImageNet Decode
-        result = str(pred_class[0][0][1])               # Convert to string
-        return result
-    return None
-'''
+def prediction(model,data):
+    dataset = data[-10:].filter(["close"]).values
+    scaler = MinMaxScaler(feature_range=(0,1))
+    s_data = scaler.fit_transform(dataset)
+    preds = model.predict(s_data)
+    real_vals = scaler.inverse_transform(preds)
+    plt.figure(figsize=(16,6))
+    plt.title("Model Predictions")
+    plt.xlabel("Date", fontsize=18)
+    plt.ylabel('Close Price USD ($)', fontsize=18)
+    plt.plot(data['close'])
+    plt.plot(real_vals)
+    plt.legend(['Real', 'Predicted'], loc='lower right')
+    plt.savefig("static/" + "predicted.png")
+    return real_vals
 
 if __name__ == '__main__':
     data = get_data(stock="SBIN")
     create_chart(data)
+    preds = prediction(model, data)
+    print(preds)
     app.run(debug=True)
 
