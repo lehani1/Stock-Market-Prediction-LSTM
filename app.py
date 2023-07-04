@@ -139,6 +139,5 @@ if __name__ == '__main__':
     data = get_data(stock="SBIN")
     create_chart(data)
     preds = prediction(model, data)
-    print(preds)
     app.run(debug=True)
 
